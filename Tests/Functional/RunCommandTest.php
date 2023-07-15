@@ -3,7 +3,6 @@
 namespace JMS\JobQueueBundle\Tests\Functional;
 
 use JMS\JobQueueBundle\Entity\Job;
-use Symfony\Component\Console\Output\Output;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 
@@ -276,7 +275,7 @@ OUTPUT
         $this->assertNotNull($job->getMemoryUsageReal());
     }
 
-    protected function setUp()
+    protected function setUp(): void
     {
         $this->createClient(array('config' => 'persistent_db.yml'));
 
@@ -290,7 +289,7 @@ OUTPUT
         $this->app->setAutoExit(false);
         $this->app->setCatchExceptions(false);
 
-        $this->em = self::$kernel->getContainer()->get('doctrine')->getManagerForClass('JMSJobQueueBundle:Job');
+        $this->em = self::$kernel->getContainer()->get('doctrine')->getManagerForClass(Job::class);
     }
 
     private function runConsoleCommand(array $args = array())
@@ -302,24 +301,5 @@ OUTPUT
         $this->app->run(new ArrayInput($args), $output);
 
         return $output->getOutput();
-    }
-}
-
-class MemoryOutput extends Output
-{
-    private $output;
-
-    protected function doWrite($message, $newline)
-    {
-        $this->output .= $message;
-
-        if ($newline) {
-            $this->output .= "\n";
-        }
-    }
-
-    public function getOutput()
-    {
-        return $this->output;
     }
 }

@@ -37,7 +37,7 @@ class MarkJobIncompleteCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output)
     {
         /** @var EntityManager $em */
-        $em = $this->registry->getManagerForClass('RjDataBundle:Job');
+        $em = $this->registry->getManagerForClass(Job::class);
 
         /** @var Job|null $job */
         $job = $em->createQuery("SELECT j FROM ".Job::class." j WHERE j.id = :id")
