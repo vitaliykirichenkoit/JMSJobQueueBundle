@@ -35,7 +35,7 @@
         "symfony/twig-bundle": "*",
         "symfony/form": "*",
         "symfony/validator": "*",
-        "phpunit/phpunit": "^9.0",
+        "phpunit/phpunit": "^10.0",
         "symfony/intl": "*"
     },
     "suggest": {
@@ -43,9 +43,8 @@
         "symfony/twig-bundle": "Required when using the webinterface."
     },
     "autoload": {
-        "psr-0": { "JMS\\JobQueueBundle": "" }
+        "psr-4": { "JMS\\JobQueueBundle\\": "" }
     },
-    "target-dir": "JMS/JobQueueBundle",
     "extra": {
         "branch-alias": {
             "dev-master": "2.0.x-dev"
