@@ -46,7 +46,7 @@
         "psr-4": { "JMS\\JobQueueBundle\\": "" }
     },
     "autoload-dev": {
-        "psr-4": { "JMS\\JobQueueBundle\\": "" }
+        "psr-4": { "JMS\\JobQueueBundle\\Tests\\": "Tests/" }
     },
     "extra": {
         "branch-alias": {
