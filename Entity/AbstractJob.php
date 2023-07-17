@@ -22,14 +22,14 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\Mapping as ORM;
 use JMS\JobQueueBundle\Exception\InvalidStateTransitionException;
 use JMS\JobQueueBundle\Exception\LogicException;
-use Symfony\Component\Debug\Exception\FlattenException;
+use Symfony\Component\ErrorHandler\Exception\FlattenException;
 
 /**
  * @ORM\MappedSuperclass
  *
  * @author Johannes M. Schmitt <schmittjoh@gmail.com>
  */
-abstract class Job
+abstract class AbstractJob
 {
     /** State if job is inserted, but not yet ready to be started. */
     const STATE_NEW = 'new';
@@ -117,7 +117,7 @@ abstract class Job
     /** @ORM\Column(type = "string") */
     protected $command;
 
-    /** @ORM\Column(type = "json_array") */
+    /** @ORM\Column(type = "json") */
     protected $args;
 
     /** @ORM\Column(type = "text", nullable = true) */
@@ -379,12 +379,12 @@ abstract class Job
         return $this->dependencies;
     }
 
-    public function hasDependency(Job $job)
+    public function hasDependency(AbstractJob $job)
     {
         return $this->dependencies->contains($job);
     }
 
-    public function addDependency(Job $job)
+    public function addDependency(AbstractJob $job)
     {
         if ($this->dependencies->contains($job)) {
             return;
@@ -502,7 +502,7 @@ abstract class Job
         return $this->originalJob;
     }
 
-    public function setOriginalJob(Job $job)
+    public function setOriginalJob(AbstractJob $job)
     {
         if (self::STATE_PENDING !== $this->state) {
             throw new \LogicException($this.' must be in state "PENDING".');
@@ -515,7 +515,7 @@ abstract class Job
         $this->originalJob = $job;
     }
 
-    public function addRetryJob(Job $job)
+    public function addRetryJob(AbstractJob $job)
     {
         if (self::STATE_RUNNING !== $this->state) {
             throw new \LogicException('Retry jobs can only be added to running jobs.');
@@ -538,7 +538,7 @@ abstract class Job
     public function isRetried()
     {
         foreach ($this->retryJobs as $job) {
-            /** @var Job $job */
+            /** @var AbstractJob $job */
 
             if ( ! $job->isInFinalState()) {
                 return true;

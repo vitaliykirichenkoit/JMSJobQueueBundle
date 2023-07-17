@@ -25,6 +25,7 @@ interface JobScheduler
      *
      * @param string $command
      * @param \DateTime $lastRunAt
+     *
      * @return Job
      */
     public function createJob(string $command, \DateTime $lastRunAt): Job;

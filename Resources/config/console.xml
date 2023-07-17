@@ -26,7 +26,7 @@
             <argument type="service" id="event_dispatcher" />
             <argument key="$queueOptionsDefault">%jms_job_queue.queue_options_defaults%</argument>
             <argument key="$queueOptions">%jms_job_queue.queue_options%</argument>
-            <argument key="$consolePath">%kernel.root_dir%/../bin/console</argument>
+            <argument key="$consolePath">%kernel.project_dir%/../bin/console</argument>
         </service>
 
         <service id="jms_job_queue.command.schedule" class="JMS\JobQueueBundle\Command\ScheduleCommand">

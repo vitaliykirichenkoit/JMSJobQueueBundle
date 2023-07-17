@@ -7,13 +7,13 @@ use Core\RentJeeves\DataBundle\Entity\Job;
 use Doctrine\ORM\EntityManager;
 use JMS\JobQueueBundle\Entity\Repository\JobManager;
 use JMS\JobQueueBundle\View\JobFilter;
-use Sensio\Bundle\FrameworkExtraBundle\Configuration\Route;
-use Symfony\Bundle\FrameworkBundle\Controller\Controller;
+use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
-class JobController extends Controller
+class JobController extends AbstractController
 {
     /**
      * @Route("/", name = "jms_jobs_overview")
@@ -24,7 +24,7 @@ class JobController extends Controller
 
         $qb = $this->getEm()->createQueryBuilder();
 
-        $qb->select('j')->from('Core\RentJeeves\DataBundle\Entity\Job', 'j')
+        $qb->select('j')->from(Job::class, 'j')
             ->where($qb->expr()->isNull('j.originalJob'))
             ->orderBy('j.id', 'desc');
 
@@ -82,7 +82,7 @@ class JobController extends Controller
         $statisticData = $statisticOptions = array();
         if ($this->getParameter('jms_job_queue.statistics')) {
             $dataPerCharacteristic = array();
-            foreach ($this->get('doctrine')->getManagerForClass('Core\RentJeeves\DataBundle\Entity\Job')->getConnection()->query("SELECT * FROM jms_job_statistics WHERE job_id = ".$job->getId()) as $row) {
+            foreach ($this->get('doctrine')->getManagerForClass(Job::class)->getConnection()->query("SELECT * FROM jms_job_statistics WHERE job_id = ".$job->getId()) as $row) {
                 $dataPerCharacteristic[$row['characteristic']][] = array(
                     // hack because postgresql lower-cases all column names.
                     array_key_exists('createdAt', $row) ? $row['createdAt'] : $row['createdat'],
@@ -153,7 +153,7 @@ class JobController extends Controller
 
     private function getEm(): EntityManager
     {
-        return $this->get('doctrine')->getManagerForClass('Core\RentJeeves\DataBundle\Entity\Job');
+        return $this->get('doctrine')->getManagerForClass(Job::class);
     }
 
     private function getRepo(): JobManager

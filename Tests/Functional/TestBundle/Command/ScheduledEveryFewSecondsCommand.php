@@ -17,7 +17,7 @@ class ScheduledEveryFewSecondsCommand extends Command implements CronCommand
         return time() - $lastRunAt->getTimestamp() >= 5;
     }
 
-    public function createCronJob(\DateTime $_): Job
+    public function createCronJob(\DateTime $lastRunAt): Job
     {
         return new Job('scheduled-every-few-seconds');
     }

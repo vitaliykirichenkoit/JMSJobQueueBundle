@@ -19,9 +19,10 @@
 namespace JMS\JobQueueBundle\Entity\Repository;
 
 use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Persistence\Proxy;
 use Doctrine\Common\Util\ClassUtils;
-use Doctrine\DBAL\Connection;
-use Doctrine\DBAL\Types\Type;
+use Doctrine\DBAL\ArrayParameterType;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\Query\Parameter;
 use Doctrine\ORM\Query\ResultSetMappingBuilder;
@@ -47,9 +48,10 @@ class JobManager
 
     public function findJob($command, array $args = array())
     {
-        return $this->getJobManager()->createQuery("SELECT j FROM Core\RentJeeves\DataBundle\Entity\Job j WHERE j.command = :command AND j.args = :args")
+        return $this->getJobManager()
+            ->createQuery("SELECT j FROM Core\RentJeeves\DataBundle\Entity\Job j WHERE j.command = :command AND j.args = :args")
             ->setParameter('command', $command)
-            ->setParameter('args', $args, Type::JSON_ARRAY)
+            ->setParameter('args', $args, Types::JSON)
             ->setMaxResults(1)
             ->getOneOrNullResult();
     }
@@ -73,11 +75,12 @@ class JobManager
         $this->getJobManager()->persist($job);
         $this->getJobManager()->flush($job);
 
-        $firstJob = $this->getJobManager()->createQuery("SELECT j FROM Core\RentJeeves\DataBundle\Entity\Job j WHERE j.command = :command AND j.args = :args ORDER BY j.id ASC")
-             ->setParameter('command', $command)
-             ->setParameter('args', $args, 'json_array')
-             ->setMaxResults(1)
-             ->getSingleResult();
+        $firstJob = $this->getJobManager()
+            ->createQuery("SELECT j FROM Core\RentJeeves\DataBundle\Entity\Job j WHERE j.command = :command AND j.args = :args ORDER BY j.id ASC")
+            ->setParameter('command', $command)
+            ->setParameter('args', $args, Types::JSON)
+            ->setMaxResults(1)
+            ->getSingleResult();
 
         if ($firstJob === $job) {
             $job->setState(Job::STATE_PENDING);
@@ -113,7 +116,9 @@ class JobManager
 
     private function acquireLock($workerName, Job $job)
     {
-        $affectedRows = $this->getJobManager()->getConnection()->executeUpdate(
+        $affectedRows = $this->getJobManager()
+            ->getConnection()
+            ->executeStatement(
             "UPDATE jms_jobs SET workerName = :worker WHERE id = :id AND workerName IS NULL",
             array(
                 'worker' => $workerName,
@@ -130,30 +135,12 @@ class JobManager
         return false;
     }
 
-    public function findAllForRelatedEntity($relatedEntity)
-    {
-        list($relClass, $relId) = $this->getRelatedEntityIdentifier($relatedEntity);
-
-        $rsm = new ResultSetMappingBuilder($this->getJobManager());
-        $rsm->addRootEntityFromClassMetadata('Core\RentJeeves\DataBundle\Entity\Job', 'j');
-
-        return $this->getJobManager()->createNativeQuery("SELECT j.* FROM jms_jobs j INNER JOIN jms_job_related_entities r ON r.job_id = j.id WHERE r.related_class = :relClass AND r.related_id = :relId", $rsm)
-                    ->setParameter('relClass', $relClass)
-                    ->setParameter('relId', $relId)
-                    ->getResult();
-    }
-
-    public function findOpenJobForRelatedEntity($command, $relatedEntity)
-    {
-        return $this->findJobForRelatedEntity($command, $relatedEntity, array(Job::STATE_RUNNING, Job::STATE_PENDING, Job::STATE_NEW));
-    }
-
     public function findJobForRelatedEntity($command, $relatedEntity, array $states = array())
     {
         list($relClass, $relId) = $this->getRelatedEntityIdentifier($relatedEntity);
 
         $rsm = new ResultSetMappingBuilder($this->getJobManager());
-        $rsm->addRootEntityFromClassMetadata('Core\RentJeeves\DataBundle\Entity\Job', 'j');
+        $rsm->addRootEntityFromClassMetadata('JMS\JobQueueBundle\Entity\Job', 'j');
 
         $sql = "SELECT j.* FROM jms_jobs j INNER JOIN jms_job_related_entities r ON r.job_id = j.id WHERE r.related_class = :relClass AND r.related_id = :relId AND j.command = :command";
         $params = new ArrayCollection();
@@ -163,12 +150,12 @@ class JobManager
 
         if ( ! empty($states)) {
             $sql .= " AND j.state IN (:states)";
-            $params->add(new Parameter('states', $states, Connection::PARAM_STR_ARRAY));
+            $params->add(new Parameter('states', $states, ArrayParameterType::STRING));
         }
 
         return $this->getJobManager()->createNativeQuery($sql, $rsm)
-                   ->setParameters($params)
-                   ->getOneOrNullResult();
+            ->setParameters($params)
+            ->getOneOrNullResult();
     }
 
     private function getRelatedEntityIdentifier($entity)
@@ -177,7 +164,7 @@ class JobManager
             throw new \RuntimeException('$entity must be an object.');
         }
 
-        if ($entity instanceof \Doctrine\Common\Persistence\Proxy) {
+        if ($entity instanceof Proxy) {
             $entity->__load();
         }
 
@@ -196,7 +183,7 @@ class JobManager
     public function findPendingJob(array $excludedIds = array(), array $excludedQueues = array(), array $restrictedQueues = array())
     {
         $qb = $this->getJobManager()->createQueryBuilder();
-        $qb->select('j')->from('Core\RentJeeves\DataBundle\Entity\Job', 'j')
+        $qb->select('j')->from(Job::class, 'j')
             ->orderBy('j.priority', 'ASC')
             ->addOrderBy('j.id', 'ASC');
 
@@ -212,17 +199,17 @@ class JobManager
 
         if ( ! empty($excludedIds)) {
             $conditions[] = $qb->expr()->notIn('j.id', ':excludedIds');
-            $qb->setParameter('excludedIds', $excludedIds, Connection::PARAM_INT_ARRAY);
+            $qb->setParameter('excludedIds', $excludedIds, ArrayParameterType::INTEGER);
         }
 
         if ( ! empty($excludedQueues)) {
             $conditions[] = $qb->expr()->notIn('j.queue', ':excludedQueues');
-            $qb->setParameter('excludedQueues', $excludedQueues, Connection::PARAM_STR_ARRAY);
+            $qb->setParameter('excludedQueues', $excludedQueues, ArrayParameterType::STRING);
         }
 
         if ( ! empty($restrictedQueues)) {
             $conditions[] = $qb->expr()->in('j.queue', ':restrictedQueues');
-            $qb->setParameter('restrictedQueues', $restrictedQueues, Connection::PARAM_STR_ARRAY);
+            $qb->setParameter('restrictedQueues', $restrictedQueues, ArrayParameterType::STRING);
         }
 
         $qb->where(call_user_func_array(array($qb->expr(), 'andX'), $conditions));
@@ -269,7 +256,7 @@ class JobManager
 
         if (null !== $this->dispatcher && ($job->isRetryJob() || 0 === count($job->getRetryJobs()))) {
             $event = new StateChangeEvent($job, $finalState);
-            $this->dispatcher->dispatch('jms_job_queue.job_state_change', $event);
+            $this->dispatcher->dispatch($event, 'jms_job_queue.job_state_change');
             $finalState = $event->getNewState();
         }
 
@@ -360,9 +347,10 @@ class JobManager
             return array();
         }
 
-        return $this->getJobManager()->createQuery("SELECT j, d FROM Core\RentJeeves\DataBundle\Entity\Job j LEFT JOIN j.dependencies d WHERE j.id IN (:ids)")
-                    ->setParameter('ids', $jobIds)
-                    ->getResult();
+        return $this->getJobManager()
+            ->createQuery("SELECT j, d FROM Core\RentJeeves\DataBundle\Entity\Job j LEFT JOIN j.dependencies d WHERE j.id IN (:ids)")
+            ->setParameter('ids', $jobIds)
+            ->getResult();
     }
 
     /**
@@ -375,53 +363,29 @@ class JobManager
             return array();
         }
 
-        return $this->getJobManager()->createQuery("SELECT j FROM Core\RentJeeves\DataBundle\Entity\Job j WHERE j.id IN (:ids)")
-                    ->setParameter('ids', $jobIds)
-                    ->getResult();
+        return $this->getJobManager()
+            ->createQuery("SELECT j FROM Core\RentJeeves\DataBundle\Entity\Job j WHERE j.id IN (:ids)")
+            ->setParameter('ids', $jobIds)
+            ->getResult();
     }
 
     private function getJobIdsOfIncomingDependencies(Job $job)
     {
-        $jobIds = $this->getJobManager()->getConnection()
+        $jobIds = $this->getJobManager()
+            ->getConnection()
             ->executeQuery("SELECT source_job_id FROM jms_job_dependencies WHERE dest_job_id = :id", array('id' => $job->getId()))
-            ->fetchAll(\PDO::FETCH_COLUMN);
+            ->fetchFirstColumn();
 
         return $jobIds;
     }
 
     public function findLastJobsWithError($nbJobs = 10)
     {
-        return $this->getJobManager()->createQuery("SELECT j FROM Core\RentJeeves\DataBundle\Entity\Job j WHERE j.state IN (:errorStates) AND j.originalJob IS NULL ORDER BY j.closedAt DESC")
-                    ->setParameter('errorStates', array(Job::STATE_TERMINATED, Job::STATE_FAILED))
-                    ->setMaxResults($nbJobs)
-                    ->getResult();
-    }
-
-    public function getAvailableQueueList()
-    {
-        $queues =  $this->getJobManager()->createQuery("SELECT DISTINCT j.queue FROM Core\RentJeeves\DataBundle\Entity\Job j WHERE j.state IN (:availableStates)  GROUP BY j.queue")
-            ->setParameter('availableStates', array(Job::STATE_RUNNING, Job::STATE_NEW, Job::STATE_PENDING))
+        return $this->getJobManager()
+            ->createQuery("SELECT j FROM Core\RentJeeves\DataBundle\Entity\Job j WHERE j.state IN (:errorStates) AND j.originalJob IS NULL ORDER BY j.closedAt DESC")
+            ->setParameter('errorStates', array(Job::STATE_TERMINATED, Job::STATE_FAILED))
+            ->setMaxResults($nbJobs)
             ->getResult();
-
-        $newQueueArray = array();
-
-        foreach($queues as $queue) {
-            $newQueue = $queue['queue'];
-            $newQueueArray[] = $newQueue;
-        }
-
-        return $newQueueArray;
-    }
-
-    public function getAvailableJobsForQueueCount($jobQueue)
-    {
-        $result = $this->getJobManager()->createQuery("SELECT j.queue FROM Core\RentJeeves\DataBundle\Entity\Job j WHERE j.state IN (:availableStates) AND j.queue = :queue")
-            ->setParameter('availableStates', array(Job::STATE_RUNNING, Job::STATE_NEW, Job::STATE_PENDING))
-            ->setParameter('queue', $jobQueue)
-            ->setMaxResults(1)
-            ->getOneOrNullResult();
-
-        return count($result);
     }
 
     private function getJobManager(): EntityManager
