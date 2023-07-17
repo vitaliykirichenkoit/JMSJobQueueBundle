@@ -45,6 +45,9 @@
     "autoload": {
         "psr-4": { "JMS\\JobQueueBundle\\": "" }
     },
+    "autoload-dev": {
+        "psr-4": { "JMS\\JobQueueBundle\\": "" }
+    },
     "extra": {
         "branch-alias": {
             "dev-master": "2.0.x-dev"
